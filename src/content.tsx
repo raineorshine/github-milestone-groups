@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client'
 import ministore from './ministore'
 import storage from './storage'
 
+/*****************************
+ * SETUP
+ *****************************/
+
 const db = storage.model({
   milestones: {
     default: [],
@@ -17,6 +21,23 @@ store.subscribe(() => {
   db.set('milestones', store.getState())
   renderMilestoneGroups()
 })
+
+/*****************************
+ * HELPERS
+ *****************************/
+
+/** Sets up turbo route handlers. */
+const route = (routes: { [key: string]: () => void }) => {
+  const onRoute = () => {
+    // @ts-ignore
+    const [_, org, repo, page, param] = window.location.pathname.split('/')
+    routes[page]?.()
+  }
+  document.addEventListener('turbo:load', onRoute)
+  onRoute()
+
+  return () => document.removeEventListener('turbo:load', onRoute)
+}
 
 const insertReactRoot = (
   el: Element | null,
@@ -36,6 +57,10 @@ const appendReactRoot = (el: Element | null, { className, tagName }: { className
   insertReactRoot(el, 'after', { className, tagName })
 const prependReactRoot = (el: Element | null, { className, tagName }: { className?: string; tagName?: string } = {}) =>
   insertReactRoot(el, 'before', { className, tagName })
+
+/*****************************
+ * COMPONENTS
+ *****************************/
 
 function Heading({ index }: { index: number }) {
   const [showOptions, setShowOptions] = useState(false)
@@ -100,31 +125,9 @@ function Heading({ index }: { index: number }) {
   )
 }
 
-// remove old roots otherwish HMR recreates them
-document.querySelectorAll('.react-root').forEach(el => el.remove())
-
-const container = document.querySelector('.js-milestone-issues-container')
-
-appendReactRoot(
-  document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
-  { tagName: 'span' },
-)?.render(
-  <React.StrictMode>
-    <a
-      onClick={() => {
-        const index = container?.querySelectorAll('.milestone-group').length || 0
-        store.update(milestones => [...milestones, { index: index }])
-        renderMilestoneGroups()
-      }}
-      className='btn-link'
-      style={{ marginLeft: '1em', padding: 0 }}
-    >
-      + Add group
-    </a>
-  </React.StrictMode>,
-)
-
+/** Renders milestone groups in the .js-milestone-issues-container. */
 const renderMilestoneGroups = () => {
+  const container = document.querySelector('.js-milestone-issues-container')
   container?.querySelectorAll('.milestone-group').forEach(el => el.remove())
   store.getState().map((_, i) =>
     prependReactRoot(container, {
@@ -138,4 +141,36 @@ const renderMilestoneGroups = () => {
   )
 }
 
-renderMilestoneGroups()
+const render = () => {
+  // remove old roots otherwish HMR recreates them
+  document.querySelectorAll('.react-root').forEach(el => el.remove())
+
+  const container = document.querySelector('.js-milestone-issues-container')
+
+  appendReactRoot(
+    document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
+    { tagName: 'span' },
+  )?.render(
+    <React.StrictMode>
+      <a
+        onClick={() => {
+          const index = container?.querySelectorAll('.milestone-group').length || 0
+          store.update(milestones => [...milestones, { index: index }])
+          renderMilestoneGroups()
+        }}
+        className='btn-link'
+        style={{ marginLeft: '1em', padding: 0 }}
+      >
+        + Add group
+      </a>
+    </React.StrictMode>,
+  )
+
+  renderMilestoneGroups()
+}
+
+/** MAIN */
+
+route({
+  milestone: render,
+})

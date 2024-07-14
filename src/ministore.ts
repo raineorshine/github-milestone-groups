@@ -28,7 +28,8 @@ const ministore = <T>(initialState: T): Ministore<T> => {
     )
       return
 
-    state = updates && typeof updates === 'object' && !Array.isArray(updates) ? { ...state, ...updates } : updates as T
+    state =
+      updates && typeof updates === 'object' && !Array.isArray(updates) ? { ...state, ...updates } : (updates as T)
 
     emitter.trigger('change', updates)
   }

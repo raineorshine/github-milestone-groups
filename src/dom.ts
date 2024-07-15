@@ -1,10 +1,5 @@
 import ReactDOM from 'react-dom/client'
 
-/** Returns true if a value is non null and non undefined. */
-function nonNull<T>(value: T | null | undefined): value is T {
-  return value != null
-}
-
 /** Inserts a ReactDOM root prepended, inserted after, or inserted before a node. */
 export const insertReactRoot = (
   el: Element | null,
@@ -32,4 +27,18 @@ export const insertReactRoot = (
     el[position](root, nextSibling || null)
   }
   return ReactDOM.createRoot(root)
+}
+
+/** Waits for a query selector to return a non-null element. */
+export const waitForElement = (selector: string, wait: number = 16): Promise<Element> => {
+  const el = document.querySelector(selector)
+  return new Promise(resolve => {
+    if (el) {
+      resolve(el)
+    } else {
+      setTimeout(() => {
+        resolve(waitForElement(selector, wait * 2))
+      }, wait)
+    }
+  })
 }

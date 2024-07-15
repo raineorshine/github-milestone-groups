@@ -1,9 +1,9 @@
 /** Sets up turbo route handlers and checks current route. */
-const route = (routes: { [key: string]: () => void }) => {
+const route = (routes: { [key: string]: (...params: string[]) => void }) => {
   const onRoute = () => {
     // @ts-ignore
-    const [_, org, repo, page, param] = window.location.pathname.split('/')
-    routes[page]?.()
+    const [_, org, repo, page, ...params] = window.location.pathname.split('/')
+    routes[page]?.(...params)
   }
 
   document.addEventListener('turbo:load', onRoute)

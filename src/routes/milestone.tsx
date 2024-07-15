@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { insertReactRoot } from '../dom'
+import { insertReactRoot, waitForElement } from '../dom'
 import ministore from '../ministore'
 import storage from '../storage'
 
@@ -7,69 +7,39 @@ import storage from '../storage'
  * SETUP
  *****************************/
 
+/** A group of issues within a GitHub milestone. */
+interface MilestoneGroup {
+  startIssue: string
+}
+
+/** A storage model type for all milestone groups keyed by GitHub milestone id. */
+interface MilestoneModel {
+  [key: string]: MilestoneGroup[]
+}
+
 const db = storage.model({
   milestones: {
-    default: [],
-    decode: s => JSON.parse(s || '[]'),
+    default: {} as MilestoneModel,
+    decode: s => JSON.parse(s || '{}') as MilestoneModel,
     encode: JSON.stringify,
   },
 })
 
-const store = ministore(db.get('milestones') as { index: number }[])
-
-store.subscribe(() => {
-  db.set('milestones', store.getState())
-  renderMilestoneGroups()
-})
-
-/** Renders milestone groups in the .js-milestone-issues-container. */
-const renderMilestoneGroups = () => {
-  const container = document.querySelector('.js-milestone-issues-container')
-  container?.querySelectorAll('.milestone-group').forEach(el => el.remove())
-  store.getState().map((_, i) =>
-    insertReactRoot(container, 'insertBefore', {
-      className:
-        'milestone-group Box-row Box-row--focus-gray js-navigation-item js-issue-row js-draggable-issue sortable-button-item',
-      nextSibling: container?.querySelector('.js-issue-row:not(.milestone-group)'),
-    })?.render(
-      <React.StrictMode>
-        <Heading index={i} />
-      </React.StrictMode>,
-    ),
-  )
-}
-
-/** Renders milestone group options and milestone groups on the milestone page. */
-const render = () => {
-  // remove old roots otherwish HMR recreates them
-  document.querySelectorAll('.react-root').forEach(el => el.remove())
-
-  insertReactRoot(
-    document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
-    'appendChild',
-    { tagName: 'span' },
-  )?.render(
-    <React.StrictMode>
-      <AddGroupLink />
-    </React.StrictMode>,
-  )
-
-  renderMilestoneGroups()
-}
+const store = ministore(db.get('milestones'))
 
 /*****************************
  * COMPONENTS
  *****************************/
 
-const AddGroupLink = () => {
-  const container = document.querySelector('.js-milestone-issues-container')
-
+const AddGroupLink = ({ milestoneId }: { milestoneId: string }) => {
   return (
     <a
       onClick={() => {
-        const index = container?.querySelectorAll('.milestone-group').length || 0
-        store.update(milestones => [...milestones, { index: index }])
-        renderMilestoneGroups()
+        store.update(milestones => ({
+          ...milestones,
+          [milestoneId]: [...(milestones[milestoneId] || []), { startIssue: 'x' }],
+        }))
+        renderMilestoneGroups(milestoneId)
       }}
       className='btn-link'
       style={{ marginLeft: '1em', padding: 0 }}
@@ -79,7 +49,7 @@ const AddGroupLink = () => {
   )
 }
 
-function Heading({ index }: { index: number }) {
+function Heading({ milestoneId, index }: { milestoneId: string; index: number }) {
   const [showOptions, setShowOptions] = useState(false)
 
   return (
@@ -127,7 +97,13 @@ function Heading({ index }: { index: number }) {
               <div>
                 <a
                   onClick={() => {
-                    store.update(milestones => milestones.filter(m => m.index !== index))
+                    store.update(state => {
+                      const milestones = state[milestoneId] || []
+                      return {
+                        ...state,
+                        [milestoneId]: milestones.filter((_, i) => i !== index),
+                      }
+                    })
                   }}
                   className='color-fg-danger btn-link mt-2'
                 >
@@ -142,4 +118,63 @@ function Heading({ index }: { index: number }) {
   )
 }
 
-export default render
+/*****************************
+ * RENDER
+ * We need multiple React roots since we are interspersing React components with existing issues in the milestone issues table.
+ *****************************/
+
+/** Renders milestone groups in the milestone issues table. */
+const renderMilestoneGroups = async (milestoneId: string) => {
+  const container = document.querySelector('.js-milestone-issues-container')
+  if (!container) {
+    throw new Error('Unable to find .js-milestone-issues-container')
+  }
+
+  // clear old milestone groups
+  container.querySelectorAll('.milestone-group').forEach(el => el.remove())
+
+  // get the current milestones
+  const milestones = store.getState()[milestoneId] || []
+
+  // wait for the first issue to load before inserting the milestone groups
+  await waitForElement('.js-issue-row:not(.milestone-group)')
+
+  milestones.map((_, i) =>
+    insertReactRoot(container, 'insertBefore', {
+      className:
+        'milestone-group Box-row Box-row--focus-gray js-navigation-item js-issue-row js-draggable-issue sortable-button-item',
+      nextSibling: container?.querySelector('.js-issue-row:not(.milestone-group)'),
+    })?.render(
+      <React.StrictMode>
+        <Heading milestoneId={milestoneId} index={i} />
+      </React.StrictMode>,
+    ),
+  )
+}
+
+/** Renders milestone group options and milestone groups on the milestone page. */
+const milestone = (milestoneId: string) => {
+  // re-render everything
+  store.subscribe(() => {
+    db.set('milestones', store.getState())
+    renderMilestoneGroups(milestoneId)
+  })
+
+  // remove old roots otherwish HMR recreates them
+  document.querySelectorAll('.react-root').forEach(el => el.remove())
+
+  // Add Group link in table header
+  insertReactRoot(
+    document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
+    'appendChild',
+    { tagName: 'span' },
+  )?.render(
+    <React.StrictMode>
+      <AddGroupLink milestoneId={milestoneId} />
+    </React.StrictMode>,
+  )
+
+  renderMilestoneGroups(milestoneId)
+}
+
+export default milestone

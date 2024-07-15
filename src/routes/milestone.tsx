@@ -152,6 +152,19 @@ const renderMilestoneGroups = async (milestoneId: string) => {
   )
 }
 
+/** Inserts a React root into the table heading and renders milestone group options. */
+const renderMilestoneGroupOptions = (milestoneId: string) => {
+  insertReactRoot(
+    document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
+    'appendChild',
+    { tagName: 'span' },
+  )?.render(
+    <React.StrictMode>
+      <AddGroupLink milestoneId={milestoneId} />
+    </React.StrictMode>,
+  )
+}
+
 /** Renders milestone group options and milestone groups on the milestone page. */
 const milestone = (milestoneId: string) => {
   // re-render everything
@@ -163,17 +176,7 @@ const milestone = (milestoneId: string) => {
   // remove old roots otherwish HMR recreates them
   document.querySelectorAll('.react-root').forEach(el => el.remove())
 
-  // Add Group link in table header
-  insertReactRoot(
-    document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
-    'appendChild',
-    { tagName: 'span' },
-  )?.render(
-    <React.StrictMode>
-      <AddGroupLink milestoneId={milestoneId} />
-    </React.StrictMode>,
-  )
-
+  renderMilestoneGroupOptions(milestoneId)
   renderMilestoneGroups(milestoneId)
 }
 

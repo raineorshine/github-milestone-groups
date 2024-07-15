@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { insertReactRoot, waitForElement } from '../dom'
+import { clear, insertReactRoot, waitForElement } from '../dom'
 import ministore from '../ministore'
 import storage from '../storage'
 
@@ -173,9 +173,7 @@ const milestone = (milestoneId: string) => {
     renderMilestoneGroups(milestoneId)
   })
 
-  // remove old roots otherwish HMR recreates them
-  document.querySelectorAll('.react-root').forEach(el => el.remove())
-
+  clear()
   renderMilestoneGroupOptions(milestoneId)
   renderMilestoneGroups(milestoneId)
 }

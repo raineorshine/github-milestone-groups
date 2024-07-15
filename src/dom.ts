@@ -1,5 +1,13 @@
 import ReactDOM from 'react-dom/client'
 
+/** The class name to use on all React roots so they can be removed and re-rendered. */
+const ROOT_CLASS = 'react-root'
+
+export const clear = () => {
+  // remove old roots otherwish HMR recreates them
+  document.querySelectorAll(`.${ROOT_CLASS}`).forEach(el => el.remove())
+}
+
 /** Inserts a ReactDOM root prepended, inserted after, or inserted before a node. */
 export const insertReactRoot = (
   el: Element | null,
@@ -17,7 +25,7 @@ export const insertReactRoot = (
 ) => {
   if (!el) return
   const root = document.createElement(tagName || 'div')
-  root.classList.add('react-root')
+  root.classList.add(ROOT_CLASS)
   if (className) {
     className.split(' ').forEach(className => root.classList.add(className))
   }

@@ -93,9 +93,104 @@ const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
   )
 }
 
+/** Shows the due date, issues, and budget of a task, and an option to delete it. */
+function GroupDetails({
+  hours,
+  issues,
+  milestoneId,
+  group,
+}: {
+  hours: number
+  issues: number[]
+  milestoneId: string
+  group: MilestoneGroup
+}) {
+  return (
+    <div className='mt-2'>
+      <div>
+        <b className='mb-1' style={{ display: 'inline-block' }}>
+          Due:
+        </b>{' '}
+        <input
+          type='date'
+          value={group.due}
+          placeholder='Enter a date'
+          onChange={e => {
+            store.update(state => {
+              const groups = state[milestoneId] || []
+              return {
+                ...state,
+                [milestoneId]: groups.map(g =>
+                  g.id === group.id
+                    ? {
+                        ...g,
+                        due: e.target.value,
+                      }
+                    : g,
+                ),
+              }
+            })
+          }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--fgColor-muted, var(--color-fg-muted))',
+            padding: '4px',
+            margin: '-4px 0',
+          }}
+        />
+      </div>
+      <div>
+        <b className='mb-1' style={{ display: 'inline-block' }}>
+          Issues:
+        </b>{' '}
+        <span
+          style={{
+            color: 'var(--fgColor-muted, var(--color-fg-muted))',
+          }}
+        >
+          {issues.map(issue => `#${issue}`).join(', ')}
+        </span>
+      </div>
+      <div>
+        <b className='mb-1' style={{ display: 'inline-block' }}>
+          Budget:
+        </b>{' '}
+        <span
+          style={{
+            color: 'var(--fgColor-muted, var(--color-fg-muted))',
+          }}
+        >
+          ${hours * HOURLY_RATE}
+        </span>
+      </div>
+      <div>
+        <a
+          onClick={() => {
+            // delete group
+            store.update(state => {
+              const groups = state[milestoneId] || []
+              return {
+                ...state,
+                [milestoneId]: groups.filter(g => g.id !== group.id),
+              }
+            })
+
+            // we have to remove the group manually since ministore does not pass the old state to the subscribe callback
+            document.getElementById(encodeGroupId(group.id))?.remove()
+          }}
+          className='color-fg-danger btn-link mt-2'
+        >
+          Delete
+        </a>
+      </div>
+    </div>
+  )
+}
+
 /** A milestone group heading. */
 function GroupHeading({ milestoneId, group, index }: { milestoneId: string; group: MilestoneGroup; index: number }) {
-  const [showOptions, setShowOptions] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   // Get all issues in the group:
   // - All issues after the group heading
@@ -137,7 +232,7 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
             ) : null}
 
             <a
-              onClick={() => setShowOptions(!showOptions)}
+              onClick={() => setShowDetails(!showDetails)}
               className='Box-row--drag-button pl-1 pr-1'
               style={{
                 color: 'var(--fgColor-muted, var(--color-fg-muted))',
@@ -147,90 +242,10 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
                 userSelect: 'none',
               }}
             >
-              {showOptions ? '-' : '+'}
+              {showDetails ? '-' : '+'}
             </a>
           </div>
-          {showOptions && (
-            <div className='mt-2'>
-              <div>
-                <b className='mb-1' style={{ display: 'inline-block' }}>
-                  Due:
-                </b>{' '}
-                <input
-                  type='date'
-                  value={group.due}
-                  placeholder='Enter a date'
-                  onChange={e => {
-                    store.update(state => {
-                      const groups = state[milestoneId] || []
-                      return {
-                        ...state,
-                        [milestoneId]: groups.map(g =>
-                          g.id === group.id
-                            ? {
-                                ...g,
-                                due: e.target.value,
-                              }
-                            : g,
-                        ),
-                      }
-                    })
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--fgColor-muted, var(--color-fg-muted))',
-                    padding: '4px',
-                    margin: '-4px 0',
-                  }}
-                />
-              </div>
-              <div>
-                <b className='mb-1' style={{ display: 'inline-block' }}>
-                  Issues:
-                </b>{' '}
-                <span
-                  style={{
-                    color: 'var(--fgColor-muted, var(--color-fg-muted))',
-                  }}
-                >
-                  {issues.map(issue => `#${issue}`).join(', ')}
-                </span>
-              </div>
-              <div>
-                <b className='mb-1' style={{ display: 'inline-block' }}>
-                  Budget:
-                </b>{' '}
-                <span
-                  style={{
-                    color: 'var(--fgColor-muted, var(--color-fg-muted))',
-                  }}
-                >
-                  ${hours * HOURLY_RATE}
-                </span>
-              </div>
-              <div>
-                <a
-                  onClick={() => {
-                    // delete group
-                    store.update(state => {
-                      const groups = state[milestoneId] || []
-                      return {
-                        ...state,
-                        [milestoneId]: groups.filter(g => g.id !== group.id),
-                      }
-                    })
-
-                    // we have to remove the group manually since ministore does not pass the old state to the subscribe callback
-                    document.getElementById(encodeGroupId(group.id))?.remove()
-                  }}
-                  className='color-fg-danger btn-link mt-2'
-                >
-                  Delete
-                </a>
-              </div>
-            </div>
-          )}
+          {showDetails && <GroupDetails hours={hours} milestoneId={milestoneId} group={group} issues={issues} />}
         </div>
       </div>
     </div>

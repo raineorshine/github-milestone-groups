@@ -153,13 +153,61 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
           {showOptions && (
             <div className='mt-2'>
               <div>
-                <b>Due:</b> {group.due}
+                <b className='mb-1' style={{ display: 'inline-block' }}>
+                  Due:
+                </b>{' '}
+                <input
+                  type='date'
+                  value={group.due}
+                  placeholder='Enter a date'
+                  onChange={e => {
+                    store.update(state => {
+                      const groups = state[milestoneId] || []
+                      return {
+                        ...state,
+                        [milestoneId]: groups.map(g =>
+                          g.id === group.id
+                            ? {
+                                ...g,
+                                due: e.target.value,
+                              }
+                            : g,
+                        ),
+                      }
+                    })
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--fgColor-muted, var(--color-fg-muted))',
+                    padding: '4px',
+                    margin: '-4px 0',
+                  }}
+                />
               </div>
               <div>
-                <b>Issues:</b> {issues.map(issue => `#${issue}`).join(', ')}
+                <b className='mb-1' style={{ display: 'inline-block' }}>
+                  Issues:
+                </b>{' '}
+                <span
+                  style={{
+                    color: 'var(--fgColor-muted, var(--color-fg-muted))',
+                  }}
+                >
+                  {issues.map(issue => `#${issue}`).join(', ')}
+                </span>
               </div>
               <div>
-                <b>Budget:</b> ${hours * HOURLY_RATE}
+                <b className='mb-1' style={{ display: 'inline-block' }}>
+                  Budget:
+                </b>{' '}
+                <span
+                  style={{
+                    color: 'var(--fgColor-muted, var(--color-fg-muted))',
+                  }}
+                >
+                  ${hours * HOURLY_RATE}
+                </span>
               </div>
               <div>
                 <a
@@ -237,18 +285,19 @@ const renderOptionLinks = (milestoneId: string) => {
 
 /** Updates the milestone groups based on thn currently rendered issues. Triggered after a milestrone is created or an issue is dragged to a new position. The DOM is the sourxe of truth, since GitHub controls interaction and rendering of the issues table. */
 const updateGroupsFromDOM = (milestoneId: string) => {
+  const groupsOld = store.getState()[milestoneId]
   const groupRows = [...document.querySelectorAll('.milestone-group')] as HTMLElement[]
-  const groups = groupRows.map(row => ({
+  const groupsFromDOM = groupRows.map(row => ({
     id: decodeGroupId(row),
     startIssue: decodeIssueNumber(row.nextElementSibling!),
-    due: '',
+    due: groupsOld.find(g => g.id === decodeGroupId(row))?.due || '',
   }))
 
   // Only update state if it has deep changed, otherwise this can lead to an infinite render loop.
   // Ministore only does a shallow compare.
-  if (JSON.stringify(groups) !== JSON.stringify(store.getState()[milestoneId])) {
+  if (JSON.stringify(groupsFromDOM) !== JSON.stringify(groupsOld)) {
     store.update({
-      [milestoneId]: groups,
+      [milestoneId]: groupsFromDOM,
     })
   }
 }

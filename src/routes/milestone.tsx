@@ -1,7 +1,10 @@
 import React, { useState } from 'react'
-import { clear, insertReactRoot, waitForElement } from '../dom'
+import { insertReactRoot } from '../dom'
 import ministore from '../ministore'
 import storage from '../storage'
+
+/** Hourly rate used to calculate the budget from estimated hours. */
+const HOURLY_RATE = 40
 
 /*****************************
  * SETUP
@@ -9,8 +12,9 @@ import storage from '../storage'
 
 /** A group of issues within a GitHub milestone. */
 interface MilestoneGroup {
+  id: string
   due: string
-  startIssue: number | null
+  startIssue: number
 }
 
 /** A storage model type for all milestone groups keyed by GitHub milestone id. */
@@ -28,11 +32,42 @@ const db = storage.model({
 
 const store = ministore(db.get('milestones'))
 
+/** Encodes a group id into a milestone group DOM id. */
+const encodeGroupId = (id: string) => `milestone-group-${id}`
+
+/** Decode a group id from a milestone group DOM id. */
+const decodeGroupId = (el: Element) => el.id.replace('milestone-group-', '')
+
 /** Decode an issue number from an issue row id. */
-const decodeIssueNumber = (el: Element | null) => (el?.id ? +el.id.split('_')[1] : null)
+const decodeIssueNumber = (el: Element) => +el.id.split('_')[1]
 
 /** Encode an issue number into an issue row id. */
 const encodeIssueNumber = (issueNumber: number) => `issue_${issueNumber}`
+
+/** Extracts the Everhour time estimate from an issue row. */
+const decodeTimeEstimate = (el: Element | null): number => {
+  // Example text: '0h of 20h'
+  // '\n                0h\n                 of 20h\n            '
+  const text = el?.querySelector?.('.everhour-item-time')?.textContent || ''
+  return +text.replace(/h/g, '').split('of')[1]?.trim() || 0
+}
+
+/** Waits for a function to return a non-null, non-undefined value, with logarithmic rolloff. */
+const waitForValue = <T,>(f: () => T, duration: number = 16): Promise<NonNullable<T>> => {
+  return new Promise(resolve => {
+    const result = f()
+    if (result != null) {
+      resolve(result)
+    } else {
+      setTimeout(() => {
+        resolve(waitForValue(f, duration * 2))
+      }, duration)
+    }
+  })
+}
+
+/** Creates a pseudorandom id. */
+const createId = (): string => Math.random().toString(36).slice(2)
 
 /*****************************
  * COMPONENTS
@@ -42,18 +77,11 @@ const encodeIssueNumber = (issueNumber: number) => `issue_${issueNumber}`
 const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
   /** Creates a new group. */
   const newGroup = () => {
-    // insert the milestone
-    const firstIssue = decodeIssueNumber(document.querySelector('.js-issue-row[id]'))
     store.update(milestones => {
-      const groups = milestones[milestoneId] || []
+      const row = document.querySelector('.js-issue-row:not(.milestone-group)')!
       return {
         ...milestones,
-        // If this is the first group, set the startIssue to the first issue in the table.
-        // Otherwise, insert the new group in the penultimate position with startIssue: 0. Milestones are numbered in array order, so this is the same as adding the new group to the end, setting its startIssue to the issue below it, and setting the last group's startIssue to 0 since now has no issues.
-        [milestoneId]:
-          groups.length > 0
-            ? [...groups.slice(0, -1), { startIssue: null, due: '' }, groups.at(-1)!]
-            : [{ startIssue: firstIssue, due: '' }],
+        [milestoneId]: [{ id: createId(), startIssue: decodeIssueNumber(row), due: '' }],
       }
     })
   }
@@ -68,6 +96,18 @@ const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
 /** A milestone group heading. */
 function GroupHeading({ milestoneId, group, index }: { milestoneId: string; group: MilestoneGroup; index: number }) {
   const [showOptions, setShowOptions] = useState(false)
+
+  // Get all issues in the group:
+  // - All issues after the group heading
+  //   - excluding the next milestone group,
+  //   - excluding any issues after the next milestone group
+  const issueRows = [
+    ...document.querySelectorAll(
+      `#${encodeGroupId(group.id)} ~ .js-issue-row:not(.milestone-group):not(#${encodeGroupId(group.id)} ~ .milestone-group ~ .js-issue-row)`,
+    ),
+  ]
+  const issues = issueRows.map(decodeIssueNumber)
+  const hours = issueRows.reduce((accum, row) => accum + decodeTimeEstimate(row), 0)
 
   return (
     <div style={{ marginLeft: '-0.5em' }}>
@@ -89,9 +129,13 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
         <div style={{ marginLeft: '0.3em' }}>
           <div style={{ display: 'flex', alignItems: 'baseline' }}>
             <h3>Milestone {index + 1}</h3>
-            <span className='ml-2' style={{ color: 'var(--fgColor-muted, var(--color-fg-muted))' }}>
-              0h
-            </span>
+
+            {hours ? (
+              <span className='ml-2' style={{ color: 'var(--fgColor-muted, var(--color-fg-muted))' }}>
+                {hours}h
+              </span>
+            ) : null}
+
             <a
               onClick={() => setShowOptions(!showOptions)}
               className='Box-row--drag-button pl-1 pr-1'
@@ -107,10 +151,16 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
             </a>
           </div>
           {showOptions && (
-            <div>
-              <div>Due: {group.due}</div>
-              <div>#xxx</div>
-              <div>$0</div>
+            <div className='mt-2'>
+              <div>
+                <b>Due:</b> {group.due}
+              </div>
+              <div>
+                <b>Issues:</b> {issues.map(issue => `#${issue}`).join(', ')}
+              </div>
+              <div>
+                <b>Budget:</b> ${hours * HOURLY_RATE}
+              </div>
               <div>
                 <a
                   onClick={() => {
@@ -119,11 +169,12 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
                       const groups = state[milestoneId] || []
                       return {
                         ...state,
-                        [milestoneId]: groups.filter(
-                          (_, i) => i !== (groups[index - 1].startIssue ? index : index - 1),
-                        ),
+                        [milestoneId]: groups.filter(g => g.id !== group.id),
                       }
                     })
+
+                    // we have to remove the group manually since ministore does not pass the old state to the subscribe callback
+                    document.getElementById(encodeGroupId(group.id))?.remove()
                   }}
                   className='color-fg-danger btn-link mt-2'
                 >
@@ -150,9 +201,6 @@ const renderGroups = (milestoneId: string) => {
     throw new Error('Unable to find .js-milestone-issues-container')
   }
 
-  // clear old milestone group elements
-  container.querySelectorAll('.milestone-group').forEach(el => el.remove())
-
   // get the current milestone groups
   const groups = store.getState()[milestoneId] || []
 
@@ -161,9 +209,10 @@ const renderGroups = (milestoneId: string) => {
       encodeIssueNumber(group.startIssue || groups.slice(i + 1).find(g => g.startIssue)?.startIssue || 0),
     )
 
-    return insertReactRoot(container, 'insertBefore', {
+    insertReactRoot(container, 'insertBefore', {
       className:
         'milestone-group Box-row Box-row--focus-gray js-navigation-item js-issue-row js-draggable-issue sortable-button-item',
+      id: encodeGroupId(group.id),
       nextSibling,
     })?.render(
       <React.StrictMode>
@@ -178,7 +227,7 @@ const renderOptionLinks = (milestoneId: string) => {
   insertReactRoot(
     document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
     'appendChild',
-    { tagName: 'span' },
+    { id: 'option-links', tagName: 'span' },
   )?.render(
     <React.StrictMode>
       <NewGroupLink milestoneId={milestoneId} />
@@ -188,10 +237,10 @@ const renderOptionLinks = (milestoneId: string) => {
 
 /** Updates the milestone groups based on thn currently rendered issues. Triggered after a milestrone is created or an issue is dragged to a new position. The DOM is the sourxe of truth, since GitHub controls interaction and rendering of the issues table. */
 const updateGroupsFromDOM = (milestoneId: string) => {
-  const groupRows = [...document.querySelectorAll('.milestone-group')]
-  const nextSiblings = groupRows.map(el => el.nextElementSibling)
-  const groups = nextSiblings.map(el => ({
-    startIssue: decodeIssueNumber(el),
+  const groupRows = [...document.querySelectorAll('.milestone-group')] as HTMLElement[]
+  const groups = groupRows.map(row => ({
+    id: decodeGroupId(row),
+    startIssue: decodeIssueNumber(row.nextElementSibling!),
     due: '',
   }))
 
@@ -207,7 +256,7 @@ const updateGroupsFromDOM = (milestoneId: string) => {
 /** Renders milestone group options and milestone groups on the milestone page. */
 const milestone = async (milestoneId: string) => {
   // wait for the first issue to load before inserting the milestone groups
-  await waitForElement('.js-issue-row:not(.milestone-group)')
+  await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
 
   // persist and re-render milestone groups when the store changes
   store.subscribe(() => {
@@ -219,10 +268,13 @@ const milestone = async (milestoneId: string) => {
     })
   })
 
-  clear()
-
   renderOptionLinks(milestoneId)
   renderGroups(milestoneId)
+
+  // re-render groups after Everhour time estimates load
+  waitForValue(() => document.querySelector('.everhour-item-time')).then(() => {
+    renderGroups(milestoneId)
+  })
 
   // update milestone on drag
   // recalculate all milestones for simplicity

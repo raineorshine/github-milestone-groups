@@ -1,30 +1,11 @@
-# React + TypeScript + Vite
+A chrome extension that lets you group issues in a GitHub milestone.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Works with [Everhour](https://everhour.com/) to calculate the estimated total hours per group.
 
-Currently, two official plugins are available:
+<img width="753" alt="Brave Browser 2024-07-21 19 13 35" src="https://github.com/user-attachments/assets/849ce56e-729b-49b9-b892-2db5a6fb05af">
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Known Issues
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
-
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+- Does not re-render when a new issue is added to the milestone in another tab or Everhour estimates change.
+- Cannot drop an issue as the _first issue_ in a group. This does not work because GitHub's drop handler updates the priority based on the issue directly above the dropped issue, but it cannot recognize the "foreign" milestone group.
+  - **Workaround:** Drop the issue one down from its intended destination, and then move the milestone group down one.

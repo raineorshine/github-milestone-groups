@@ -1,5 +1,6 @@
 {
   "name": "github-milestone-groups",
+  "description": "A chrome extension that lets you group issues in a GitHub milestone.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

@@ -233,11 +233,10 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
 
             <a
               onClick={() => setShowDetails(!showDetails)}
-              className='Box-row--drag-button pl-1 pr-1'
+              className='Box-row--drag-button pl-2 pr-2'
               style={{
                 color: 'var(--fgColor-muted, var(--color-fg-muted))',
                 cursor: 'pointer',
-                marginLeft: '0.5em',
                 textDecoration: 'none',
                 userSelect: 'none',
               }}

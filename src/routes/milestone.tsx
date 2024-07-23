@@ -31,6 +31,12 @@ const db = storage.model({
 })
 
 const store = ministore(db.get('milestones'))
+const expandedStore = ministore(
+  {} as {
+    // milestoneId -> group id -> expanded
+    [key: string]: { [key: string]: boolean }
+  },
+)
 
 /** Encodes a group id into a milestone group DOM id. */
 const encodeGroupId = (id: string) => `milestone-group-${id}`
@@ -89,6 +95,43 @@ const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
   return (
     <a onClick={newGroup} className='btn-link' style={{ marginLeft: '1em', padding: 0 }}>
       + New group
+    </a>
+  )
+}
+
+/** Toggle all groups expand/collapse. */
+function ExpandAll({ milestoneId }: { milestoneId: string }) {
+  // collapse if any group is expanded
+  // expand only if all groups are collapsed
+  const expand = !document.querySelector('.milestone-group .show-details.expanded')
+
+  return (
+    <a
+      onClick={() => {
+        // collapse if any group is expanded
+        // expand only if all groups are collapsed
+        const expand = !document.querySelector('.milestone-group .show-details.expanded')
+
+        document.querySelectorAll('.milestone-group').forEach(group => {
+          const showDetailsLink = group.querySelector('a.show-details') as HTMLElement
+          const isExpanded = showDetailsLink.classList.contains('expanded')
+          if (expand ? !isExpanded : isExpanded) {
+            showDetailsLink.click()
+          }
+        })
+
+        expandedStore.update(state => {
+          const expanded = state[milestoneId] || {}
+          return {
+            ...state,
+            [milestoneId]: Object.fromEntries(Object.entries(expanded).map(([groupId]) => [groupId, expand])),
+          }
+        })
+      }}
+      className='btn-link'
+      style={{ marginLeft: '1em', padding: 0 }}
+    >
+      {expand ? 'Expand' : 'Collapse'} all
     </a>
   )
 }
@@ -232,8 +275,20 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
             ) : null}
 
             <a
-              onClick={() => setShowDetails(!showDetails)}
-              className='Box-row--drag-button pl-2 pr-2'
+              onClick={() => {
+                setShowDetails(!showDetails)
+                expandedStore.update(state => {
+                  const expanded = state[milestoneId] || {}
+                  return {
+                    ...state,
+                    [milestoneId]: {
+                      ...expanded,
+                      [group.id]: !showDetails,
+                    },
+                  }
+                })
+              }}
+              className={`show-details ${showDetails ? 'expanded' : ''} Box-row--drag-button pl-2 pr-2`}
               style={{
                 color: 'var(--fgColor-muted, var(--color-fg-muted))',
                 cursor: 'pointer',
@@ -293,6 +348,7 @@ const renderOptionLinks = (milestoneId: string) => {
   )?.render(
     <React.StrictMode>
       <NewGroupLink milestoneId={milestoneId} />
+      <ExpandAll milestoneId={milestoneId} />
     </React.StrictMode>,
   )
 }
@@ -329,6 +385,10 @@ const milestone = async (milestoneId: string) => {
     setTimeout(() => {
       updateGroupsFromDOM(milestoneId)
     })
+  })
+
+  expandedStore.subscribe(() => {
+    renderOptionLinks(milestoneId)
   })
 
   renderOptionLinks(milestoneId)

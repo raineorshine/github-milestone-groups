@@ -403,7 +403,10 @@ const milestone = async (milestoneId: string) => {
   // recalculate all milestones for simplicity
   const container = document.querySelector('.js-milestone-issues-container')!
   container.addEventListener('dragend', () => {
-    updateGroupsFromDOM(milestoneId)
+    // give the DOM a moment to re-render, as I have seen group estimates become stale
+    setTimeout(() => {
+      updateGroupsFromDOM(milestoneId)
+    })
   })
 }
 

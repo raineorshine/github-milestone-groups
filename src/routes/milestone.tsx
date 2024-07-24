@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { insertReactRoot } from '../dom'
-import ministore from '../ministore'
+import reactMinistore from '../react-ministore'
 import storage from '../storage'
 
 /** Hourly rate used to calculate the budget from estimated hours. */
@@ -19,7 +19,7 @@ interface MilestoneGroup {
 
 /** A storage model type for all milestone groups keyed by GitHub milestone id. */
 interface MilestoneModel {
-  [key: string]: MilestoneGroup[]
+  [milestoneId: string]: MilestoneGroup[]
 }
 
 const db = storage.model({
@@ -30,13 +30,18 @@ const db = storage.model({
   },
 })
 
-const store = ministore(db.get('milestones'))
-const expandedStore = ministore(
-  {} as {
-    // milestoneId -> group id -> expanded
-    [key: string]: { [key: string]: boolean }
-  },
-)
+/** Returns a function that updates the expandedStore from the given milestones. Adds new keys to the expanded store, deletes removed keys, and keeps existing keys with their existing state. */
+const updateExpandedFromMilestones =
+  (milestones: MilestoneModel) => (state: { [milestoneId: string]: { [groupId: string]: boolean } }) => ({
+    [milestoneId]: Object.fromEntries(
+      (milestones[milestoneId] || []).map(g => [g.id, state[milestoneId]?.[g.id] ?? false]),
+    ),
+  })
+
+const [, , , , milestoneId] = window.location.pathname.split('/')
+const store = reactMinistore(db.get('milestones'))
+// milestoneId: group id: expanded
+const expandedStore = reactMinistore(updateExpandedFromMilestones(store.getState())({}))
 
 /** Encodes a group id into a milestone group DOM id. */
 const encodeGroupId = (id: string) => `milestone-group-${id}`
@@ -101,37 +106,25 @@ const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
 
 /** Toggle all groups expand/collapse. */
 function ExpandAll({ milestoneId }: { milestoneId: string }) {
-  // collapse if any group is expanded
-  // expand only if all groups are collapsed
-  const expand = !document.querySelector('.milestone-group .show-details.expanded')
+  // if none of the groups are expanded, then expand all groups that are collapsed
+  // otheerwise, collapse all groups that are expanded
+  const noneExpanded = expandedStore.useSelector(state => !Object.values(state[milestoneId] || {}).some(value => value))
 
   return (
     <a
       onClick={() => {
-        // collapse if any group is expanded
-        // expand only if all groups are collapsed
-        const expand = !document.querySelector('.milestone-group .show-details.expanded')
-
-        document.querySelectorAll('.milestone-group').forEach(group => {
-          const showDetailsLink = group.querySelector('a.show-details') as HTMLElement
-          const isExpanded = showDetailsLink.classList.contains('expanded')
-          if (expand ? !isExpanded : isExpanded) {
-            showDetailsLink.click()
-          }
-        })
-
         expandedStore.update(state => {
           const expanded = state[milestoneId] || {}
           return {
             ...state,
-            [milestoneId]: Object.fromEntries(Object.entries(expanded).map(([groupId]) => [groupId, expand])),
+            [milestoneId]: Object.fromEntries(Object.entries(expanded).map(([groupId]) => [groupId, noneExpanded])),
           }
         })
       }}
       className='btn-link'
       style={{ marginLeft: '1em', padding: 0 }}
     >
-      {expand ? 'Expand' : 'Collapse'} all
+      {noneExpanded ? 'Expand' : 'Collapse'} all
     </a>
   )
 }
@@ -233,7 +226,7 @@ function GroupDetails({
 
 /** A milestone group heading. */
 function GroupHeading({ milestoneId, group, index }: { milestoneId: string; group: MilestoneGroup; index: number }) {
-  const [showDetails, setShowDetails] = useState(false)
+  const showDetails = expandedStore.useSelector(state => state[milestoneId]?.[group.id] || false)
 
   // Get all issues in the group:
   // - All issues after the group heading
@@ -276,7 +269,6 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
 
             <a
               onClick={() => {
-                setShowDetails(!showDetails)
                 expandedStore.update(state => {
                   const expanded = state[milestoneId] || {}
                   return {
@@ -379,18 +371,17 @@ const milestone = async (milestoneId: string) => {
   await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
 
   // persist and re-render milestone groups when the store changes
-  store.subscribe(() => {
+  store.subscribe(milestones => {
     const state = store.getState()
     db.set('milestones', state)
+
+    expandedStore.update(updateExpandedFromMilestones(milestones))
+
     renderGroups(milestoneId)
     renderOptionLinks(milestoneId) // "Expand all" is hidden when there are no groups
     setTimeout(() => {
       updateGroupsFromDOM(milestoneId)
     })
-  })
-
-  expandedStore.subscribe(() => {
-    renderOptionLinks(milestoneId)
   })
 
   renderOptionLinks(milestoneId)

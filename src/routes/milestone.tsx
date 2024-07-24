@@ -341,6 +341,7 @@ const renderGroups = (milestoneId: string) => {
 
 /** Inserts a React root into the table heading and renders milestone group options. */
 const renderOptionLinks = (milestoneId: string) => {
+  const groups = store.getState()[milestoneId] || []
   insertReactRoot(
     document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
     'appendChild',
@@ -348,7 +349,7 @@ const renderOptionLinks = (milestoneId: string) => {
   )?.render(
     <React.StrictMode>
       <NewGroupLink milestoneId={milestoneId} />
-      <ExpandAll milestoneId={milestoneId} />
+      {groups.length > 0 && <ExpandAll milestoneId={milestoneId} />}
     </React.StrictMode>,
   )
 }
@@ -382,6 +383,7 @@ const milestone = async (milestoneId: string) => {
     const state = store.getState()
     db.set('milestones', state)
     renderGroups(milestoneId)
+    renderOptionLinks(milestoneId) // "Expand all" is hidden when there are no groups
     setTimeout(() => {
       updateGroupsFromDOM(milestoneId)
     })

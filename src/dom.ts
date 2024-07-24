@@ -31,9 +31,12 @@ export const insertReactRoot = (
 ) => {
   if (!el) return
 
-  // return the original root element if it exists
+  // return the original root element if it exists and is still in the DOM
   if (id && rootMap.has(id)) {
-    return rootMap.get(id)
+    const el = (rootMap.get(id) as any)._internalRoot.containerInfo
+    if (document.body.contains(el)) {
+      return rootMap.get(id)
+    }
   }
 
   const root = document.createElement(tagName || 'div')

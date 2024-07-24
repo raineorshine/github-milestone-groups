@@ -367,9 +367,6 @@ const updateGroupsFromDOM = (milestoneId: string) => {
 
 /** Renders milestone group options and milestone groups on the milestone page. */
 const milestone = async (milestoneId: string) => {
-  // wait for the first issue to load before inserting the milestone groups
-  await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
-
   // persist and re-render milestone groups when the store changes
   store.subscribe(milestones => {
     const state = store.getState()
@@ -383,9 +380,6 @@ const milestone = async (milestoneId: string) => {
       updateGroupsFromDOM(milestoneId)
     })
   })
-
-  renderOptionLinks(milestoneId)
-  renderGroups(milestoneId)
 
   // re-render groups after Everhour time estimates load
   waitForValue(() => document.querySelector('.everhour-item-time')).then(() => {
@@ -401,6 +395,11 @@ const milestone = async (milestoneId: string) => {
       updateGroupsFromDOM(milestoneId)
     })
   })
+
+  // wait for the first issue to load before inserting the milestone groups
+  await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
+  renderOptionLinks(milestoneId)
+  renderGroups(milestoneId)
 }
 
 export default milestone

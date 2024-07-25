@@ -18,30 +18,32 @@ interface MilestoneGroup {
 }
 
 /** A storage model type for all milestone groups keyed by GitHub milestone id. */
-interface MilestoneModel {
+interface MilestoneState {
   [milestoneId: string]: MilestoneGroup[]
+}
+
+interface ExpandedState {
+  [milestoneId: string]: { [groupId: string]: boolean }
 }
 
 const db = storage.model({
   milestones: {
-    default: {} as MilestoneModel,
-    decode: s => JSON.parse(s || '{}') as MilestoneModel,
+    default: {} as MilestoneState,
+    decode: s => JSON.parse(s || '{}') as MilestoneState,
     encode: JSON.stringify,
   },
 })
 
-/** Returns a function that updates the expandedStore from the given milestones. Adds new keys to the expanded store, deletes removed keys, and keeps existing keys with their existing state. */
-const updateExpandedFromMilestones =
-  (milestones: MilestoneModel) => (state: { [milestoneId: string]: { [groupId: string]: boolean } }) => ({
-    [milestoneId]: Object.fromEntries(
-      (milestones[milestoneId] || []).map(g => [g.id, state[milestoneId]?.[g.id] ?? false]),
-    ),
-  })
+/** Returns an update function for expandedStore that merges in the current milestones. Adds new keys to the expanded store, deletes removed keys, and keeps existing keys with their existing state. */
+const updateExpandedFromMilestones = (milestones: MilestoneState) => (state: ExpandedState) => ({
+  [milestoneId]: Object.fromEntries(
+    (milestones[milestoneId] || []).map(g => [g.id, state[milestoneId]?.[g.id] ?? false]),
+  ),
+})
 
 const [, , , , milestoneId] = window.location.pathname.split('/')
-const store = reactMinistore(db.get('milestones'))
-// milestoneId: group id: expanded
-const expandedStore = reactMinistore(updateExpandedFromMilestones(store.getState())({}))
+const milestonesStore = reactMinistore(db.get('milestones'))
+const expandedStore = reactMinistore(updateExpandedFromMilestones(milestonesStore.getState())({}))
 
 /** Encodes a group id into a milestone group DOM id. */
 const encodeGroupId = (id: string) => `milestone-group-${id}`
@@ -88,7 +90,7 @@ const createId = (): string => Math.random().toString(36).slice(2)
 const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
   /** Creates a new group. */
   const newGroup = () => {
-    store.update(milestones => {
+    milestonesStore.update(milestones => {
       const row = document.querySelector('.js-issue-row:not(.milestone-group)')!
       return {
         ...milestones,
@@ -152,7 +154,7 @@ function GroupDetails({
           value={group.due}
           placeholder='Enter a date'
           onChange={e => {
-            store.update(state => {
+            milestonesStore.update(state => {
               const groups = state[milestoneId] || []
               return {
                 ...state,
@@ -204,7 +206,7 @@ function GroupDetails({
         <a
           onClick={() => {
             // delete group
-            store.update(state => {
+            milestonesStore.update(state => {
               const groups = state[milestoneId] || []
               return {
                 ...state,
@@ -311,7 +313,7 @@ const renderGroups = (milestoneId: string) => {
   }
 
   // get the current milestone groups
-  const groups = store.getState()[milestoneId] || []
+  const groups = milestonesStore.getState()[milestoneId] || []
 
   groups.forEach((group, i) => {
     const nextSibling: HTMLElement | null = document.getElementById(
@@ -333,7 +335,7 @@ const renderGroups = (milestoneId: string) => {
 
 /** Inserts a React root into the table heading and renders milestone group options. */
 const renderOptionLinks = (milestoneId: string) => {
-  const groups = store.getState()[milestoneId] || []
+  const groups = milestonesStore.getState()[milestoneId] || []
   insertReactRoot(
     document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
     'appendChild',
@@ -348,7 +350,7 @@ const renderOptionLinks = (milestoneId: string) => {
 
 /** Updates the milestone groups based on thn currently rendered issues. Triggered after a milestrone is created or an issue is dragged to a new position. The DOM is the sourxe of truth, since GitHub controls interaction and rendering of the issues table. */
 const updateGroupsFromDOM = (milestoneId: string) => {
-  const groupsOld = store.getState()[milestoneId]
+  const groupsOld = milestonesStore.getState()[milestoneId]
   const groupRows = [...document.querySelectorAll('.milestone-group')] as HTMLElement[]
   const groupsFromDOM = groupRows.map(row => ({
     id: decodeGroupId(row),
@@ -359,7 +361,7 @@ const updateGroupsFromDOM = (milestoneId: string) => {
   // Only update state if it has deep changed, otherwise this can lead to an infinite render loop.
   // Ministore only does a shallow compare.
   if (JSON.stringify(groupsFromDOM) !== JSON.stringify(groupsOld)) {
-    store.update({
+    milestonesStore.update({
       [milestoneId]: groupsFromDOM,
     })
   }
@@ -368,8 +370,8 @@ const updateGroupsFromDOM = (milestoneId: string) => {
 /** Renders milestone group options and milestone groups on the milestone page. */
 const milestone = async (milestoneId: string) => {
   // persist and re-render milestone groups when the store changes
-  store.subscribe(milestones => {
-    const state = store.getState()
+  milestonesStore.subscribe(milestones => {
+    const state = milestonesStore.getState()
     db.set('milestones', state)
 
     expandedStore.update(updateExpandedFromMilestones(milestones))

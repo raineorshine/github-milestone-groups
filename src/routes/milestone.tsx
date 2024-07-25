@@ -372,9 +372,7 @@ const milestone = async () => {
 
     renderGroups()
     renderOptionLinks() // "Expand all" is hidden when there are no groups
-    setTimeout(() => {
-      updateGroupsFromDOM()
-    })
+    setTimeout(updateGroupsFromDOM)
   })
 
   // re-render groups after Everhour time estimates load
@@ -387,9 +385,7 @@ const milestone = async () => {
   const container = document.querySelector('.js-milestone-issues-container')!
   container.addEventListener('dragend', () => {
     // give the DOM a moment to re-render, as I have seen group estimates become stale
-    setTimeout(() => {
-      updateGroupsFromDOM()
-    })
+    setTimeout(updateGroupsFromDOM)
   })
 
   // wait for the first issue to load before inserting the milestone groups

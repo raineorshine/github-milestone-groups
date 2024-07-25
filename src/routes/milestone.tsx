@@ -87,7 +87,7 @@ const createId = (): string => Math.random().toString(36).slice(2)
  *****************************/
 
 /** A link rendered in the milestone issues table that adds a new milestone group when clicked. */
-const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
+const NewGroupLink = () => {
   /** Creates a new group. */
   const newGroup = () => {
     milestonesStore.update(milestones => {
@@ -107,7 +107,7 @@ const NewGroupLink = ({ milestoneId }: { milestoneId: string }) => {
 }
 
 /** Toggle all groups expand/collapse. */
-function ExpandAll({ milestoneId }: { milestoneId: string }) {
+function ExpandAll() {
   // if none of the groups are expanded, then expand all groups that are collapsed
   // otheerwise, collapse all groups that are expanded
   const noneExpanded = expandedStore.useSelector(state => !Object.values(state[milestoneId] || {}).some(value => value))
@@ -132,17 +132,7 @@ function ExpandAll({ milestoneId }: { milestoneId: string }) {
 }
 
 /** Shows the due date, issues, and budget of a task, and an option to delete it. */
-function GroupDetails({
-  hours,
-  issues,
-  milestoneId,
-  group,
-}: {
-  hours: number
-  issues: number[]
-  milestoneId: string
-  group: MilestoneGroup
-}) {
+function GroupDetails({ hours, issues, group }: { hours: number; issues: number[]; group: MilestoneGroup }) {
   return (
     <div className='mt-2'>
       <div>
@@ -227,7 +217,7 @@ function GroupDetails({
 }
 
 /** A milestone group heading. */
-function GroupHeading({ milestoneId, group, index }: { milestoneId: string; group: MilestoneGroup; index: number }) {
+function GroupHeading({ group, index }: { group: MilestoneGroup; index: number }) {
   const showDetails = expandedStore.useSelector(state => state[milestoneId]?.[group.id] || false)
 
   // Get all issues in the group:
@@ -293,7 +283,7 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
               {showDetails ? '-' : '+'}
             </a>
           </div>
-          {showDetails && <GroupDetails hours={hours} milestoneId={milestoneId} group={group} issues={issues} />}
+          {showDetails && <GroupDetails hours={hours} group={group} issues={issues} />}
         </div>
       </div>
     </div>
@@ -306,7 +296,7 @@ function GroupHeading({ milestoneId, group, index }: { milestoneId: string; grou
  *****************************/
 
 /** Renders milestone groups in the milestone issues table. */
-const renderGroups = (milestoneId: string) => {
+const renderGroups = () => {
   const container = document.querySelector('.js-milestone-issues-container')
   if (!container) {
     throw new Error('Unable to find .js-milestone-issues-container')
@@ -327,14 +317,14 @@ const renderGroups = (milestoneId: string) => {
       nextSibling,
     })?.render(
       <React.StrictMode>
-        <GroupHeading milestoneId={milestoneId} group={group} index={i} />
+        <GroupHeading group={group} index={i} />
       </React.StrictMode>,
     )
   })
 }
 
 /** Inserts a React root into the table heading and renders milestone group options. */
-const renderOptionLinks = (milestoneId: string) => {
+const renderOptionLinks = () => {
   const groups = milestonesStore.getState()[milestoneId] || []
   insertReactRoot(
     document.getElementById('js-issues-toolbar')!.querySelector('.table-list-filters .table-list-header-toggle'),
@@ -342,14 +332,14 @@ const renderOptionLinks = (milestoneId: string) => {
     { id: 'option-links', tagName: 'span' },
   )?.render(
     <React.StrictMode>
-      <NewGroupLink milestoneId={milestoneId} />
-      {groups.length > 0 && <ExpandAll milestoneId={milestoneId} />}
+      <NewGroupLink />
+      {groups.length > 0 && <ExpandAll />}
     </React.StrictMode>,
   )
 }
 
 /** Updates the milestone groups based on thn currently rendered issues. Triggered after a milestrone is created or an issue is dragged to a new position. The DOM is the sourxe of truth, since GitHub controls interaction and rendering of the issues table. */
-const updateGroupsFromDOM = (milestoneId: string) => {
+const updateGroupsFromDOM = () => {
   const groupsOld = milestonesStore.getState()[milestoneId]
   const groupRows = [...document.querySelectorAll('.milestone-group')] as HTMLElement[]
   const groupsFromDOM = groupRows.map(row => ({
@@ -368,7 +358,7 @@ const updateGroupsFromDOM = (milestoneId: string) => {
 }
 
 /** Renders milestone group options and milestone groups on the milestone page. */
-const milestone = async (milestoneId: string) => {
+const milestone = async () => {
   // persist and re-render milestone groups when the store changes
   milestonesStore.subscribe(milestones => {
     const state = milestonesStore.getState()
@@ -376,16 +366,16 @@ const milestone = async (milestoneId: string) => {
 
     expandedStore.update(updateExpandedFromMilestones(milestones))
 
-    renderGroups(milestoneId)
-    renderOptionLinks(milestoneId) // "Expand all" is hidden when there are no groups
+    renderGroups()
+    renderOptionLinks() // "Expand all" is hidden when there are no groups
     setTimeout(() => {
-      updateGroupsFromDOM(milestoneId)
+      updateGroupsFromDOM()
     })
   })
 
   // re-render groups after Everhour time estimates load
   waitForValue(() => document.querySelector('.everhour-item-time')).then(() => {
-    renderGroups(milestoneId)
+    renderGroups()
   })
 
   // update milestone on drag
@@ -394,14 +384,14 @@ const milestone = async (milestoneId: string) => {
   container.addEventListener('dragend', () => {
     // give the DOM a moment to re-render, as I have seen group estimates become stale
     setTimeout(() => {
-      updateGroupsFromDOM(milestoneId)
+      updateGroupsFromDOM()
     })
   })
 
   // wait for the first issue to load before inserting the milestone groups
   await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
-  renderOptionLinks(milestoneId)
-  renderGroups(milestoneId)
+  renderOptionLinks()
+  renderGroups()
 }
 
 export default milestone

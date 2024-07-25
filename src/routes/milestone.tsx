@@ -10,11 +10,15 @@ const HOURLY_RATE = 40
  * SETUP
  *****************************/
 
+/** The position of a group, either above an issue, or at the beginning or end of the list. */
+type Position = number | 'first' | 'last'
+
 /** A group of issues within a GitHub milestone. */
 interface MilestoneGroup {
   id: string
   due: string
-  startIssue: number
+  /** The issue number of the first issue in the group. 'first' if the group has no milestones and is at the top of the list (i.e. is inserted directly before an existing group at the top). 'last' if the group has no milestones and is at the end of the list. */
+  startIssue: Position
 }
 
 /** A storage model type for all milestone groups keyed by GitHub milestone id. */
@@ -52,10 +56,10 @@ const encodeGroupId = (id: string) => `milestone-group-${id}`
 const decodeGroupId = (el: Element) => el.id.replace('milestone-group-', '')
 
 /** Decode an issue number from an issue row id. */
-const decodeIssueNumber = (el: Element) => +el.id.split('_')[1]
+const decodeIssueNumber = (el: Element): Position => (!el ? 'last' : el.id ? +el.id.split('_')[1] : 'first')
 
 /** Encode an issue number into an issue row id. */
-const encodeIssueNumber = (issueNumber: number) => `issue_${issueNumber}`
+const encodeIssueNumber = (issueNumber: Position) => `issue_${issueNumber}`
 
 /** Extracts the Everhour time estimate from an issue row. */
 const decodeTimeEstimate = (el: Element | null): number => {
@@ -132,7 +136,7 @@ function ExpandAll() {
 }
 
 /** Shows the due date, issues, and budget of a task, and an option to delete it. */
-function GroupDetails({ hours, issues, group }: { hours: number; issues: number[]; group: MilestoneGroup }) {
+function GroupDetails({ hours, issues, group }: { hours: number; issues: Position[]; group: MilestoneGroup }) {
   return (
     <div className='mt-2'>
       <div>
@@ -307,7 +311,7 @@ const renderGroups = () => {
 
   groups.forEach((group, i) => {
     const nextSibling: HTMLElement | null = document.getElementById(
-      encodeIssueNumber(group.startIssue || groups.slice(i + 1).find(g => g.startIssue)?.startIssue || 0),
+      encodeIssueNumber(group.startIssue || groups.slice(i + 1).find(g => g.startIssue)?.startIssue || 'first'),
     )
 
     insertReactRoot(container, 'insertBefore', {

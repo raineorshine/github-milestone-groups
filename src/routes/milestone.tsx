@@ -355,6 +355,10 @@ const updateGroupsFromDOM = () => {
       [milestoneId]: groupsFromDOM,
     })
   }
+  // Groups may not have changed, but the issues within them may have, so we need to re-render to update the group estimates.
+  else {
+    renderGroups()
+  }
 }
 
 /** Renders milestone group options and milestone groups on the milestone page. */

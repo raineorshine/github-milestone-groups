@@ -86,6 +86,23 @@ const waitForValue = <T,>(f: () => T, duration: number = 16): Promise<NonNullabl
 /** Creates a pseudorandom id. */
 const createId = (): string => Math.random().toString(36).slice(2)
 
+/** Extract the list of issues and total hours of a given MilestoneGroup from the DOM. */
+const groupDetails = (group: MilestoneGroup) => {
+  // Get all issues in the group:
+  // - All issues after the group heading
+  //   - excluding the next milestone group,
+  //   - excluding any issues after the next milestone group
+  const issueRows = [
+    ...document.querySelectorAll(
+      `#${encodeGroupId(group.id)} ~ .js-issue-row:not(.milestone-group):not(#${encodeGroupId(group.id)} ~ .milestone-group ~ .js-issue-row)`,
+    ),
+  ]
+  const issues = issueRows.map(decodeIssueNumber)
+  const hours = issueRows.reduce((accum, row) => accum + decodeTimeEstimate(row), 0)
+
+  return { issues, hours }
+}
+
 /*****************************
  * COMPONENTS
  *****************************/
@@ -131,6 +148,40 @@ function ExpandAll() {
       style={{ marginLeft: '1em', padding: 0 }}
     >
       {noneExpanded ? 'Expand' : 'Collapse'} all
+    </a>
+  )
+}
+
+/** Export all milestone groups as JSON. */
+function Export() {
+  const groups = milestonesStore.useSelector(state => state[milestoneId] || [])
+  const allDetails = groups.map(group => ({ ...groupDetails(group), due: group.due }))
+
+  return (
+    <a
+      onClick={() => {
+        alert(JSON.stringify(allDetails))
+      }}
+      className='btn-link'
+      style={{ marginLeft: '1em', padding: 0 }}
+    >
+      <svg
+        width='18'
+        height='18'
+        fill='rgba(255, 255, 255, 1)'
+        viewBox='0 0 11 10'
+        style={{
+          position: 'relative',
+          fill: 'var(--fgColor-muted, var(--color-fg-muted))',
+          width: '18px',
+          height: '18px',
+          verticalAlign: 'top',
+        }}
+      >
+        <g>
+          <path d='M5.07799385,1.57822638 L5.07799385,6.00195683 C5.07799385,6.25652943 4.87308997,6.46290127 4.61635805,6.46290127 C4.36140363,6.46290127 4.15472224,6.25632412 4.15472224,6.00195683 L4.15472224,1.57673073 L3.63332249,2.09813049 C3.45470505,2.27674793 3.16501806,2.27665705 2.98348118,2.09512018 C2.80320118,1.91484018 2.80426532,1.62148443 2.98047088,1.44527887 L4.29219473,0.133555019 C4.38100979,0.0447399441 4.49728613,0.000109416918 4.61407318,0 L4.61759666,0.0013781583 C4.73483522,0.00162826335 4.85141208,0.0459413813 4.93902573,0.133555019 L6.25074959,1.44527887 C6.42936703,1.62389632 6.42927613,1.91358331 6.24773926,2.09512018 C6.06745926,2.27540018 5.77410353,2.27433604 5.59789795,2.09813049 L5.07799385,1.57822638 Z M0.92327161,8.54026239 L8.30944449,8.54026239 L8.30944449,5.3066871 C8.30944449,5.05290609 8.51434837,4.84717595 8.77108029,4.84717595 C9.02603471,4.84717595 9.2327161,5.05449945 9.2327161,5.3066871 L9.2327161,9.00402285 C9.2327161,9.13081036 9.18157324,9.24560465 9.09837549,9.32874375 C9.01393142,9.41215029 8.89896465,9.463534 8.77170544,9.463534 L0.461010662,9.463534 C0.334057222,9.463534 0.219089304,9.41259023 0.135717961,9.32967926 C0.05158592,9.24480666 0,9.1300136 0,9.00402285 L0,5.3066871 C0,5.05290609 0.204903893,4.84717595 0.461635805,4.84717595 C0.71659022,4.84717595 0.92327161,5.05449945 0.92327161,5.3066871 L0.92327161,8.54026239 Z'></path>
+        </g>
+      </svg>
     </a>
   )
 }
@@ -224,17 +275,7 @@ function GroupDetails({ hours, issues, group }: { hours: number; issues: Positio
 function GroupHeading({ group, index }: { group: MilestoneGroup; index: number }) {
   const showDetails = expandedStore.useSelector(state => state[milestoneId]?.[group.id] || false)
 
-  // Get all issues in the group:
-  // - All issues after the group heading
-  //   - excluding the next milestone group,
-  //   - excluding any issues after the next milestone group
-  const issueRows = [
-    ...document.querySelectorAll(
-      `#${encodeGroupId(group.id)} ~ .js-issue-row:not(.milestone-group):not(#${encodeGroupId(group.id)} ~ .milestone-group ~ .js-issue-row)`,
-    ),
-  ]
-  const issues = issueRows.map(decodeIssueNumber)
-  const hours = issueRows.reduce((accum, row) => accum + decodeTimeEstimate(row), 0)
+  const { issues, hours } = groupDetails(group)
 
   return (
     <div style={{ marginLeft: '-0.5em' }}>
@@ -337,7 +378,12 @@ const renderOptionLinks = () => {
   )?.render(
     <React.StrictMode>
       <NewGroupLink />
-      {groups.length > 0 && <ExpandAll />}
+      {groups.length > 0 && (
+        <>
+          <ExpandAll />
+          <Export />
+        </>
+      )}
     </React.StrictMode>,
   )
 }
@@ -382,6 +428,7 @@ const milestone = async () => {
   // re-render groups after Everhour time estimates load
   waitForValue(() => document.querySelector('.everhour-item-time')).then(() => {
     renderGroups()
+    renderOptionLinks()
   })
 
   // update milestone on drag

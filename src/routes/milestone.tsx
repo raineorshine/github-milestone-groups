@@ -388,6 +388,14 @@ const renderOptionLinks = () => {
   )
 }
 
+/** Re-renders milestone groups and option links. */
+const render = () => {
+  renderGroups()
+
+  // "Expand all" is hidden when there are no groups
+  renderOptionLinks()
+}
+
 /** Updates the milestone groups based on thn currently rendered issues. Triggered after a milestrone is created or an issue is dragged to a new position. The DOM is the sourxe of truth, since GitHub controls interaction and rendering of the issues table. */
 const updateGroupsFromDOM = () => {
   const groupsOld = milestonesStore.getState()[milestoneId]
@@ -420,15 +428,13 @@ const milestone = async () => {
 
     expandedStore.update(updateExpandedFromMilestones(milestones))
 
-    renderGroups()
-    renderOptionLinks() // "Expand all" is hidden when there are no groups
+    render()
     setTimeout(updateGroupsFromDOM)
   })
 
   // re-render groups after Everhour time estimates load
   waitForValue(() => document.querySelector('.everhour-item-time')).then(() => {
-    renderGroups()
-    renderOptionLinks()
+    render()
   })
 
   // update milestone on drag
@@ -443,14 +449,14 @@ const milestone = async () => {
   // I could not find a turbo event or any other event on the window, document, or turbo-frame that triggers when the table is reloaded, so restore to re-rendering when the tab becomes active again.
   document.addEventListener('visibilitychange', e => {
     if (document.visibilityState === 'visible') {
-      renderGroups()
+      render()
     }
   })
 
   // wait for the first issue to load before inserting the milestone groups
   await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
-  renderOptionLinks()
-  renderGroups()
+
+  render()
 }
 
 export default milestone

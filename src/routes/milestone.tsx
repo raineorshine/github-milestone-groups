@@ -439,6 +439,14 @@ const milestone = async () => {
     setTimeout(updateGroupsFromDOM)
   })
 
+  // When an issue is added or removed from a milestone in another tab, the table re-loads.
+  // I could not find a turbo event or any other event on the window, document, or turbo-frame that triggers when the table is reloaded, so restore to re-rendering when the tab becomes active again.
+  document.addEventListener('visibilitychange', e => {
+    if (document.visibilityState === 'visible') {
+      renderGroups()
+    }
+  })
+
   // wait for the first issue to load before inserting the milestone groups
   await waitForValue(() => document.querySelector('.js-issue-row:not(.milestone-group)'))
   renderOptionLinks()

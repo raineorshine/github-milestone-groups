@@ -51,7 +51,7 @@ const ministore = <T>(initialState: T): Ministore<T> => {
     equals: (a: S, b: S) => boolean = (a, b) => a === b,
   ) => {
     let value = selector(state)
-    subscribe((stateNew: T) => {
+    subscribe(() => {
       const valueOld = value
       value = selector(state)
       if (!equals(value, valueOld)) {

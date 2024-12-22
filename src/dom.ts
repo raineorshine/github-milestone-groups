@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom/client'
 const ROOT_CLASS = 'react-root'
 
 /** A map of root element ids to ReactDOM roots that allows re-rendering in place. Never cleaned up! */
-let rootMap = new Map<string, ReactDOM.Root>()
+const rootMap = new Map<string, ReactDOM.Root>()
 
 export const clear = () => {
   // remove old roots otherwish HMR recreates them
@@ -33,6 +33,7 @@ export const insertReactRoot = (
 
   // return the original root element if it exists and is still in the DOM
   if (id && rootMap.has(id)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const el = (rootMap.get(id) as any)._internalRoot.containerInfo
     if (document.body.contains(el)) {
       return rootMap.get(id)

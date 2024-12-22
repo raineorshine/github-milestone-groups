@@ -20,7 +20,8 @@ function getItem(key: string, defaultValue?: string | (() => string)) {
 }
 
 /** An interaface that defines how to encode/decode a strongly typed value from storage. */
-interface ModelSpec<T = any> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface ModelSpec<T = any> {
   default?: T
   /** Decodes a string stored in local storage back into a properly typed value. Default: identify function. */
   decode?: (s: string | null) => T
@@ -29,7 +30,7 @@ interface ModelSpec<T = any> {
 }
 
 /** Extracts the value type from ModelSpec. */
-type ModelValue<M> = M extends ModelSpec<infer U> ? U : never
+export type ModelValue<M> = M extends ModelSpec<infer U> ? U : never
 
 /** Creates a strongly typed local storage model. Guarantees well-typed keys and values of storage items. */
 const model = <T extends { [key: string]: ModelSpec }>(schema: T) => {

@@ -8,7 +8,8 @@ const route = (routes: { [key: string]: (...params: string[]) => void }) => {
     if (window.location.pathname === lastPathname) return
     lastPathname = window.location.pathname
 
-    // @ts-ignore
+    // @ts-expect-error - ignore unused variable
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, org, repo, page, ...params] = window.location.pathname.split('/')
     routes[page]?.(...params)
   }

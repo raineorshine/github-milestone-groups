@@ -2,13 +2,14 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 import ministore, { Ministore } from './ministore'
 
 /** A minimal store type. */
-interface Store<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface Store<T = any> {
   getState: () => T
   subscribe: (cb: () => void) => () => void
 }
 
 /** Creates a useEffect hook that invokes a callback when a slice of a given store's state changes. Unlike useSelector, triggers the callback without re-rendering the component. Useful when a DOM calculation needs to be performed after a state change, but does not always require a re-render. */
-const makeSelectorEffect = <U extends Store<any>>(store: U) => {
+const makeSelectorEffect = <U extends Store>(store: U) => {
   type S = U extends Store<infer V> ? V : never
 
   return <T>(effect: () => void, select: (state: S) => T, equalityFn?: (a: T, b: T) => boolean) => {
@@ -29,7 +30,7 @@ const makeSelectorEffect = <U extends Store<any>>(store: U) => {
 }
 
 /** Enhances a generic store with React hooks. */
-const makeReactStore = <U extends Store<any>>(store: U) => {
+const makeReactStore = <U extends Store>(store: U) => {
   type T = U extends Store<infer V> ? V : never
 
   /** A hook that invokes a callback when the state changes. */
@@ -67,7 +68,7 @@ const makeReactStore = <U extends Store<any>>(store: U) => {
 const reactMinistore = <T>(initialState: T) => makeReactStore(ministore(initialState))
 
 /** Create a read-only computed reactMinistore that derives its state from one or more ministores. */
-function compose<T, S extends any[]>(compute: (...states: S) => T, stores: { [K in keyof S]: Ministore<S[K]> }) {
+function compose<T, S extends object[]>(compute: (...states: S) => T, stores: { [K in keyof S]: Ministore<S[K]> }) {
   const store = ministore.compose(compute, stores)
   return makeReactStore(store)
 }

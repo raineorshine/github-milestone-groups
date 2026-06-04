@@ -1,4 +1,4 @@
-A chrome extension that lets you group issues in a GitHub milestone.
+A Chrome extension that lets you group issues in a GitHub milestone.
 
 Works with [Everhour](https://everhour.com/) to calculate the estimated total hours per group.
 
